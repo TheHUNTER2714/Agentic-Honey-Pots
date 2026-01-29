@@ -22,8 +22,9 @@ API_KEY = "hunter-secret"
 conversations = {}
 
 class Message(BaseModel):
-    conversation_id: str
-    message: str
+    conversation_id: str | None = "default"
+    message: str | None = ""
+    text: str | None = ""
 
 def detect_scam(text):
     keywords = ["kyc", "urgent", "verify", "account", "upi", "lottery", "click"]
@@ -43,19 +44,23 @@ def honeypot(msg: Message, x_api_key: str = Header(None)):
         raise HTTPException(status_code=401, detail="Invalid API key")
 
     start = time.time()
-    is_scam, confidence = detect_scam(msg.message)
+    incoming_text = msg.message or msg.text or ""
+    is_scam, confidence = detect_scam(incoming_text)
 
-    convo = conversations.setdefault(msg.conversation_id, {
+
+    conv_id = msg.conversation_id or "default"
+
+    convo = conversations.setdefault(conv_id, {
         "turns": 0,
         "intel": {"bank_accounts": [], "upi_ids": [], "phishing_links": []},
         "start_time": start
     })
 
     convo["turns"] += 1
-    intel = extract_intel(msg.message)
+    intel = extract_intel(incoming_text)
 
     for k in convo["intel"]:
-        convo["intel"][k].extend(intel[k])
+        convo["intel"][k] = list(set(convo["intel"][k] + intel[k]))
 
     return {
         "scam_detected": is_scam,

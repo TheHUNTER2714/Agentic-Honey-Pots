@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Header, HTTPException
+from fastapi import FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import re
@@ -39,25 +39,40 @@ def extract_intel(text):
     }
 
 @app.post("/honeypot/message")
-def honeypot(msg: Message, x_api_key: str = Header(None)):
+async def honeypot(request: Request, x_api_key: str = Header(None)):
     if x_api_key != API_KEY:
         raise HTTPException(status_code=401, detail="Invalid API key")
+        
+    try:
+       body = await request.json()
+    except Exception:
+       body = {}
+
+    message_text = (
+        body.get("message")
+        or body.get("text")
+        or body.get("content")
+        or ""
+    )
+
+    conversation_id = (
+        body.get("conversation_id")
+        or body.get("conversationId")
+        or body.get("session_id")
+        or "default"
+    )
 
     start = time.time()
-    incoming_text = msg.message or msg.text or ""
-    is_scam, confidence = detect_scam(incoming_text)
+    is_scam, confidence = detect_scam(message_text)
 
-
-    conv_id = msg.conversation_id or "default"
-
-    convo = conversations.setdefault(conv_id, {
+    convo = conversations.setdefault(conversation_id, {
         "turns": 0,
         "intel": {"bank_accounts": [], "upi_ids": [], "phishing_links": []},
         "start_time": start
     })
 
     convo["turns"] += 1
-    intel = extract_intel(incoming_text)
+    intel = extract_intel(message_text)
 
     for k in convo["intel"]:
         convo["intel"][k] = list(set(convo["intel"][k] + intel[k]))
@@ -71,3 +86,4 @@ def honeypot(msg: Message, x_api_key: str = Header(None)):
         },
         "extracted_intelligence": convo["intel"]
     }
+

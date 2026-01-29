@@ -1,8 +1,8 @@
 from fastapi import FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
 import re
 import time
+import json
 
 app = FastAPI()
 
@@ -12,19 +12,14 @@ def root():
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # allow frontend
+    allow_origins=["*"],
     allow_credentials=True,
-    allow_methods=["*"],  # allow POST, OPTIONS
-    allow_headers=["*"],  # allow X-API-KEY
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 API_KEY = "hunter-secret"
 conversations = {}
-
-class Message(BaseModel):
-    conversation_id: str | None = "default"
-    message: str | None = ""
-    text: str | None = ""
 
 def detect_scam(text):
     keywords = ["kyc", "urgent", "verify", "account", "upi", "lottery", "click"]
@@ -45,10 +40,10 @@ async def honeypot(request: Request, x_api_key: str = Header(None)):
 
     body = {}
 
+    # --- universal body parsing ---
     try:
         raw_body = await request.body()
         if raw_body:
-            import json
             body = json.loads(raw_body.decode())
     except Exception:
         body = {}
@@ -61,17 +56,36 @@ async def honeypot(request: Request, x_api_key: str = Header(None)):
         except Exception:
             body = dict(request.query_params)
 
-    message_text = (
-        body.get("message")
-        or body.get("text")
-        or body.get("content")
-        or ""
-    )
+    # --- extract message safely ---
+    message_text = ""
 
+    if isinstance(body, dict):
+        message_text = (
+            body.get("message")
+            or body.get("text")
+            or body.get("content")
+            or ""
+        )
+
+        if not message_text:
+            data = body.get("data") or body.get("payload") or {}
+            if isinstance(data, dict):
+                message_text = (
+                    data.get("message")
+                    or data.get("text")
+                    or data.get("content")
+                    or ""
+                )
+
+    message_text = str(message_text)
+
+    # --- conversation id ---
     conversation_id = (
         body.get("conversation_id")
         or body.get("conversationId")
         or body.get("session_id")
+        or body.get("sessionId")
+        or body.get("conversation")
         or "default"
     )
 

@@ -6,6 +6,10 @@ import time
 
 app = FastAPI()
 
+@app.get("/")
+def root():
+    return {"status": "Agentic HoneyPot API running"}
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # allow frontend

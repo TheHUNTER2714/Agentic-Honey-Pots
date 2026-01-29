@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Agentic Honey-Pot</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/typed.js@2.0.16/dist/typed.umd.js"></script>
+<script src="https://unpkg.com/three@0.158.0/build/three.min.js"></script>
+<style>
+body { margin:0; overflow:hidden; background:black; }
+canvas { position:fixed; inset:0; z-index:-1; }
+</style>
+</head>
+<body class="text-white flex items-center justify-center min-h-screen">
+<canvas id="bg"></canvas>
+
+<div class="text-center max-w-3xl px-6">
+  <h1 class="text-6xl font-extrabold mb-6">🕵️ Agentic Honey-Pot</h1>
+  <h2 class="text-3xl text-cyan-400 mb-6"><span id="typed"></span></h2>
+  <p class="text-gray-300 mb-10 text-lg">
+    Autonomous AI honeypot for scam detection and intelligence extraction.
+  </p>
+  <a href="dashboard.html"
+     class="px-12 py-4 rounded-full bg-gradient-to-r from-blue-500 to-cyan-400
+            font-bold hover:scale-110 transition">
+    Get Started 🚀
+  </a>
+</div>
+
+<script>
+new Typed("#typed", {
+ strings:["Detecting Scams","Engaging Fraudsters","Extracting Intelligence"],
+ typeSpeed:55, backSpeed:30, loop:true
+});
+
+const scene=new THREE.Scene();
+const camera=new THREE.PerspectiveCamera(75,innerWidth/innerHeight,0.1,1000);
+const renderer=new THREE.WebGLRenderer({canvas:bg,alpha:true});
+renderer.setSize(innerWidth,innerHeight);
+const geo=new THREE.BufferGeometry();
+const count=1200;
+const pos=new Float32Array(count*3);
+for(let i=0;i<count*3;i++)pos[i]=(Math.random()-0.5)*10;
+geo.setAttribute("position",new THREE.BufferAttribute(pos,3));
+const mat=new THREE.PointsMaterial({color:0x38bdf8,size:0.02});
+const pts=new THREE.Points(geo,mat);
+scene.add(pts);
+camera.position.z=5;
+function animate(){requestAnimationFrame(animate);pts.rotation.y+=0.0006;renderer.render(scene,camera)}
+animate();
+</script>
+</body>
+</html>

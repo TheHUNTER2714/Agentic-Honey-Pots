@@ -43,10 +43,18 @@ async def honeypot(request: Request, x_api_key: str = Header(None)):
     if x_api_key != API_KEY:
         raise HTTPException(status_code=401, detail="Invalid API key")
         
+    raw_body = await request.body()
+    
     try:
-       body = await request.json()
+       import json
+       body = json.loads(raw_body.decode()) if raw_body else {}
     except Exception:
        body = {}
+
+    # fallback: form/query parameters
+    if not body:
+        form_data = await request.form()
+        body = dict(form_data) if form_data else dict(request.query_params)
 
     message_text = (
         body.get("message")
@@ -86,4 +94,3 @@ async def honeypot(request: Request, x_api_key: str = Header(None)):
         },
         "extracted_intelligence": convo["intel"]
     }
-

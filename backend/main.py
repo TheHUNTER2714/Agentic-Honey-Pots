@@ -42,19 +42,24 @@ def extract_intel(text):
 async def honeypot(request: Request, x_api_key: str = Header(None)):
     if x_api_key != API_KEY:
         raise HTTPException(status_code=401, detail="Invalid API key")
-        
-    raw_body = await request.body()
-    
-    try:
-       import json
-       body = json.loads(raw_body.decode()) if raw_body else {}
-    except Exception:
-       body = {}
 
-    # fallback: form/query parameters
+    body = {}
+
+    try:
+        raw_body = await request.body()
+        if raw_body:
+            import json
+            body = json.loads(raw_body.decode())
+    except Exception:
+        body = {}
+
+    # fallback to form/query
     if not body:
-        form_data = await request.form()
-        body = dict(form_data) if form_data else dict(request.query_params)
+        try:
+            form_data = await request.form()
+            body = dict(form_data)
+        except Exception:
+            body = dict(request.query_params)
 
     message_text = (
         body.get("message")
@@ -86,9 +91,10 @@ async def honeypot(request: Request, x_api_key: str = Header(None)):
         convo["intel"][k] = list(set(convo["intel"][k] + intel[k]))
 
     return {
-        "scam_detected": is_scam,
+        "classification": "scam" if is_scam else "not_scam",
         "confidence": confidence,
-        "engagement": {
+        "reply": "Thank you, can you provide more details?",
+        "engagement_metrics": {
             "conversation_turns": convo["turns"],
             "duration_seconds": int(time.time() - convo["start_time"])
         },

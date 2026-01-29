@@ -91,10 +91,10 @@ async def honeypot(request: Request, x_api_key: str = Header(None)):
         convo["intel"][k] = list(set(convo["intel"][k] + intel[k]))
 
     return {
-        "classification": "scam" if is_scam else "not_scam",
+        "scam_detected": is_scam,
         "confidence": confidence,
-        "reply": "Thank you, can you provide more details?",
-        "engagement_metrics": {
+        "agent_reply": "Thank you, can you provide more details?",
+        "engagement": {
             "conversation_turns": convo["turns"],
             "duration_seconds": int(time.time() - convo["start_time"])
         },

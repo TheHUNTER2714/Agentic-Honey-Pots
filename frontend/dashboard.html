@@ -73,7 +73,7 @@ async function sendMessage() {
     const resBox = document.getElementById("response");
     resBox.textContent = "Processing...";
 
-    const res = await fetch("http://127.0.0.1:8000/honeypot/message", {
+    const res = await fetch("https://agentic-honey-pots.onrender.com/honeypot/message", {
         method: "POST",
         headers: { "Content-Type": "application/json", "X-API-KEY": "hunter-secret" },
         body: JSON.stringify({ conversation_id: "demo-123", message: msg })
@@ -103,3 +103,4 @@ async function sendMessage() {
 </script>
 </body>
 </html>
+

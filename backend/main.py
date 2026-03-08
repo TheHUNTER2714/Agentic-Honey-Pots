@@ -35,12 +35,12 @@ def extract_intel(text):
 
 @app.post("/honeypot/message")
 async def honeypot(request: Request, x_api_key: str = Header(None)):
+
     if x_api_key != API_KEY:
         raise HTTPException(status_code=401, detail="Invalid API key")
 
     body = {}
 
-    # --- universal body parsing ---
     try:
         raw_body = await request.body()
         if raw_body:
@@ -48,46 +48,17 @@ async def honeypot(request: Request, x_api_key: str = Header(None)):
     except Exception:
         body = {}
 
-    # fallback to form/query
-    if not body:
-        try:
-            form_data = await request.form()
-            body = dict(form_data)
-        except Exception:
-            body = dict(request.query_params)
-
-    # --- extract message safely ---
     message_text = ""
 
     if isinstance(body, dict):
-        message_text = (
-            body.get("message")
-            or body.get("text")
-            or body.get("content")
-            or ""
-        )
+        message = body.get("message", {})
 
-        if not message_text:
-            data = body.get("data") or body.get("payload") or {}
-            if isinstance(data, dict):
-                message_text = (
-                    data.get("message")
-                    or data.get("text")
-                    or data.get("content")
-                    or ""
-                )
+        if isinstance(message, dict):
+            message_text = message.get("text", "")
+        else:
+            message_text = str(message)
 
-    message_text = str(message_text)
-
-    # --- conversation id ---
-    conversation_id = (
-        body.get("conversation_id")
-        or body.get("conversationId")
-        or body.get("session_id")
-        or body.get("sessionId")
-        or body.get("conversation")
-        or "default"
-    )
+    conversation_id = body.get("sessionId", "default")
 
     start = time.time()
     is_scam, confidence = detect_scam(message_text)
@@ -99,18 +70,19 @@ async def honeypot(request: Request, x_api_key: str = Header(None)):
     })
 
     convo["turns"] += 1
+
     intel = extract_intel(message_text)
 
     for k in convo["intel"]:
         convo["intel"][k] = list(set(convo["intel"][k] + intel[k]))
 
+    # --- Honeypot reply generation ---
+    reply = "Why is my account being suspended?"
+
+    if is_scam:
+        reply = "I didn't request this. Why is my account being blocked?"
+
     return {
-        "scam_detected": is_scam,
-        "confidence": confidence,
-        "agent_reply": "Thank you, can you provide more details?",
-        "engagement": {
-            "conversation_turns": convo["turns"],
-            "duration_seconds": int(time.time() - convo["start_time"])
-        },
-        "extracted_intelligence": convo["intel"]
+        "status": "success",
+        "reply": reply
     }

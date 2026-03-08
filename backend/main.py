@@ -9,6 +9,26 @@ app = FastAPI()
 def root():
     return {"status": "Agentic HoneyPot API running"}
 
+
+# -------- INFO ROUTE (PRO TIP) --------
+@app.get("/honeypot/message")
+def honeypot_info():
+    return {
+        "endpoint": "/honeypot/message",
+        "method": "POST",
+        "description": "Send scam messages for honeypot engagement.",
+        "required_header": "x-api-key: hunter-secret",
+        "example_request": {
+            "sessionId": "example-session",
+            "message": {
+                "sender": "scammer",
+                "text": "Your bank account will be blocked today. Verify immediately.",
+                "timestamp": 1769776085000
+            }
+        }
+    }
+
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -20,6 +40,7 @@ app.add_middleware(
 API_KEY = "hunter-secret"
 
 conversations = {}
+
 
 # -----------------------------
 # Scam detection
@@ -51,7 +72,7 @@ def extract_intel(text):
 
 
 # -----------------------------
-# Honeypot endpoint
+# Honeypot POST endpoint
 # -----------------------------
 @app.post("/honeypot/message")
 async def honeypot(request: Request, x_api_key: str = Header(None)):
@@ -65,17 +86,13 @@ async def honeypot(request: Request, x_api_key: str = Header(None)):
     except:
         body = {}
 
-    # -----------------------------
     # Extract message safely
-    # -----------------------------
     message_text = ""
 
     if isinstance(body.get("message"), dict):
         message_text = body["message"].get("text", "")
 
-    # -----------------------------
     # Conversation session
-    # -----------------------------
     session_id = body.get("sessionId", "default")
 
     is_scam, confidence = detect_scam(message_text)
@@ -93,17 +110,13 @@ async def honeypot(request: Request, x_api_key: str = Header(None)):
     for key in convo["intel"]:
         convo["intel"][key] = list(set(convo["intel"][key] + intel[key]))
 
-    # -----------------------------
     # Honeypot reply
-    # -----------------------------
     reply = "Why is my account being suspended?"
 
     if is_scam:
         reply = "I didn't request this. Why is my account being blocked?"
 
-    # -----------------------------
     # Required response format
-    # -----------------------------
     return {
         "status": "success",
         "reply": reply

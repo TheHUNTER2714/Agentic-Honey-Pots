@@ -2,7 +2,6 @@ from fastapi import FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 import re
 import time
-import json
 
 app = FastAPI()
 
@@ -19,69 +18,92 @@ app.add_middleware(
 )
 
 API_KEY = "hunter-secret"
+
 conversations = {}
 
+# -----------------------------
+# Scam detection
+# -----------------------------
 def detect_scam(text):
-    keywords = ["kyc", "urgent", "verify", "account", "upi", "lottery", "click"]
-    score = sum(1 for k in keywords if k in text.lower())
-    return score >= 2, min(0.95, 0.6 + score * 0.1)
 
+    keywords = [
+        "kyc","urgent","verify","account",
+        "upi","lottery","click","blocked","suspend"
+    ]
+
+    score = sum(1 for k in keywords if k in text.lower())
+
+    confidence = min(0.95, 0.6 + score * 0.1)
+
+    return score >= 2, confidence
+
+
+# -----------------------------
+# Extract scam intelligence
+# -----------------------------
 def extract_intel(text):
+
     return {
         "bank_accounts": re.findall(r"\b\d{9,18}\b", text),
         "upi_ids": re.findall(r"[\w.-]+@[\w.-]+", text),
         "phishing_links": re.findall(r"https?://[^\s]+", text)
     }
 
+
+# -----------------------------
+# Honeypot endpoint
+# -----------------------------
 @app.post("/honeypot/message")
 async def honeypot(request: Request, x_api_key: str = Header(None)):
 
+    # API key validation
     if x_api_key != API_KEY:
         raise HTTPException(status_code=401, detail="Invalid API key")
 
-    body = {}
-
     try:
-        raw_body = await request.body()
-        if raw_body:
-            body = json.loads(raw_body.decode())
-    except Exception:
+        body = await request.json()
+    except:
         body = {}
 
+    # -----------------------------
+    # Extract message safely
+    # -----------------------------
     message_text = ""
 
-    if isinstance(body, dict):
-        message = body.get("message", {})
+    if isinstance(body.get("message"), dict):
+        message_text = body["message"].get("text", "")
 
-        if isinstance(message, dict):
-            message_text = message.get("text", "")
-        else:
-            message_text = str(message)
+    # -----------------------------
+    # Conversation session
+    # -----------------------------
+    session_id = body.get("sessionId", "default")
 
-    conversation_id = body.get("sessionId", "default")
-
-    start = time.time()
     is_scam, confidence = detect_scam(message_text)
 
-    convo = conversations.setdefault(conversation_id, {
+    intel = extract_intel(message_text)
+
+    convo = conversations.setdefault(session_id, {
         "turns": 0,
         "intel": {"bank_accounts": [], "upi_ids": [], "phishing_links": []},
-        "start_time": start
+        "start_time": time.time()
     })
 
     convo["turns"] += 1
 
-    intel = extract_intel(message_text)
+    for key in convo["intel"]:
+        convo["intel"][key] = list(set(convo["intel"][key] + intel[key]))
 
-    for k in convo["intel"]:
-        convo["intel"][k] = list(set(convo["intel"][k] + intel[k]))
-
-    # --- Honeypot reply generation ---
+    # -----------------------------
+    # Honeypot reply
+    # -----------------------------
     reply = "Why is my account being suspended?"
 
     if is_scam:
         reply = "I didn't request this. Why is my account being blocked?"
 
+    # -----------------------------
+    # Required response format
+    # -----------------------------
     return {
         "status": "success",
         "reply": reply

@@ -1,3 +1,5 @@
+from typing import Any, Dict, List, Optional, Union
+
 from fastapi import FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -23,22 +25,22 @@ DEFAULT_REPLY = "Why is my account being suspended?"
 
 
 class MessagePayload(BaseModel):
-    sender: str | None = None
-    text: str | None = None
-    timestamp: int | None = None
+    sender: Optional[str] = None
+    text: Optional[str] = None
+    timestamp: Optional[int] = None
 
 
 class HoneypotRequest(BaseModel):
-    sessionId: str | None = None
-    message: MessagePayload | str | None = None
-    conversationHistory: list | None = None
-    metadata: dict | None = None
+    sessionId: Optional[str] = None
+    message: Optional[Union[MessagePayload, str]] = None
+    conversationHistory: Optional[List[Any]] = None
+    metadata: Optional[Dict[str, Any]] = None
 
 
 def is_valid_api_key(
-    x_api_key: str | None,
-    api_key: str | None,
-    authorization: str | None,
+    x_api_key: Optional[str],
+    api_key: Optional[str],
+    authorization: Optional[str],
 ) -> bool:
     if x_api_key == API_KEY or api_key == API_KEY:
         return True
@@ -55,16 +57,15 @@ def is_valid_api_key(
 
 @app.post("/honeypot/message")
 async def honeypot(
-    payload: HoneypotRequest,
-    x_api_key: str | None = Header(default=None),
-    api_key: str | None = Header(default=None, alias="API-KEY"),
-    authorization: str | None = Header(default=None),
+    payload: Optional[HoneypotRequest] = None,
+    x_api_key: Optional[str] = Header(default=None),
+    api_key: Optional[str] = Header(default=None, alias="API-KEY"),
+    authorization: Optional[str] = Header(default=None),
 ):
     if not is_valid_api_key(x_api_key, api_key, authorization):
         raise HTTPException(status_code=401, detail="Invalid API key")
 
-    # Access payload fields to ensure the evaluator's submitted shape is accepted.
-    _ = payload.message
+    _ = payload
 
     return {
         "status": "success",
